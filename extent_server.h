@@ -9,6 +9,15 @@
 
 class extent_server {
 
+ protected:
+  struct extent {
+    std::string content;
+    extent_protocol::attr attribute;
+  };
+
+  pthread_mutex_t extent_table_mutex;
+  std::map<extent_protocol::extentid_t, extent> extent_table;
+
  public:
   extent_server();
 

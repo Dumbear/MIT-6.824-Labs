@@ -219,8 +219,22 @@ fuseserver_createhelper(fuse_ino_t parent, const char *name,
   e->attr_timeout = 0.0;
   e->entry_timeout = 0.0;
   e->generation = 0;
-  // You fill this in for Lab 2
-  return yfs_client::NOENT;
+
+  yfs_client::status r = yfs_client::OK;
+
+  yfs_client::inum inum;
+  puts("ok");
+  if ((r = yfs->create(parent, std::string(name), inum)) != yfs_client::OK) {
+    return r;
+  }
+  e->ino = (fuse_ino_t)inum;
+
+  /* Should change the parent's mtime and ctime? */
+  if ((r = getattr(inum, e->attr)) != yfs_client::OK) {
+    return r;
+  }
+
+  return yfs_client::OK;
 }
 
 void
@@ -270,7 +284,14 @@ fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
   e.generation = 0;
   bool found = false;
 
-  // You fill this in for Lab 2
+  yfs_client::inum inum;
+  if (yfs->lookup(parent, std::string(name), inum) == yfs_client::EXIST) {
+    e.ino = (fuse_ino_t)inum;
+    if (getattr(inum, e.attr) == yfs_client::OK) {
+      found = true;
+    }
+  }
+
   if (found)
     fuse_reply_entry(req, &e);
   else
@@ -330,9 +351,15 @@ fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
 
   memset(&b, 0, sizeof(b));
 
+  std::list<yfs_client::dirent> entries;
+  if (yfs->readdir(inum, entries) != yfs_client::OK) {
+    fuse_reply_err(req, ENOENT);
+    return;
+  }
 
-  // You fill this in for Lab 2
-
+  for (std::list<yfs_client::dirent>::iterator i = entries.begin(); i != entries.end(); ++i) {
+    dirbuf_add(&b, i->name.c_str(), i->inum);
+  }
 
   reply_buf_limited(req, b.p, b.size, off, size);
   free(b.p);

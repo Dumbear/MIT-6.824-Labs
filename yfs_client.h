@@ -34,6 +34,9 @@ class yfs_client {
  private:
   static std::string filename(inum);
   static inum n2i(std::string);
+  static yfs_client::status to_status(extent_protocol::status);
+  static void join(const std::list<yfs_client::dirent> &entries, std::string &s);
+  static void split(const std::string &s, std::list<yfs_client::dirent> &entries);
  public:
 
   yfs_client(std::string, std::string);
@@ -43,6 +46,10 @@ class yfs_client {
 
   int getfile(inum, fileinfo &);
   int getdir(inum, dirinfo &);
+
+  yfs_client::status readdir(yfs_client::inum inum, std::list<yfs_client::dirent> &entries);
+  yfs_client::status create(yfs_client::inum parent, std::string name, yfs_client::inum &inum);
+  yfs_client::status lookup(yfs_client::inum parent, std::string name, yfs_client::inum &inum);
 };
 
 #endif 
