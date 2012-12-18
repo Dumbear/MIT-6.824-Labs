@@ -662,7 +662,40 @@ rpcs::checkduplicate_and_update(unsigned int clt_nonce, unsigned int xid,
 {
 	ScopedLock rwl(&reply_window_m_);
 
-        // You fill this in for Lab 1.
+	VERIFY (xid > xid_rep);
+	if (reply_xid.find(clt_nonce) == reply_xid.end() || reply_xid[clt_nonce] < xid_rep) {
+		reply_xid[clt_nonce] = xid_rep;
+	} else {
+		xid_rep = reply_xid[clt_nonce];
+	}
+
+	std::map<unsigned int, std::list<reply_t> >::iterator it = reply_window_.find(clt_nonce);
+	VERIFY (it != reply_window_.end());
+	for (std::list<reply_t>::iterator i = it->second.begin(); i != it->second.end(); ++i) {
+		if (i->xid == xid) {
+			if (i->cb_present) {
+				*b = i->buf;
+				*sz = i->sz;
+				return DONE;
+			}
+			return INPROGRESS;
+		}
+	}
+
+	if (xid <= reply_xid[clt_nonce]) {
+		return FORGOTTEN;
+	}
+
+	for (std::list<reply_t>::iterator i = it->second.begin(); i != it->second.end(); ) {
+		if (i->xid <= xid_rep) {
+			VERIFY (i->cb_present);
+			free(i->buf);
+			i = it->second.erase(i);
+		} else {
+			++i;
+		}
+	}
+	it->second.push_back(reply_t(xid));
 	return NEW;
 }
 
@@ -676,7 +709,16 @@ rpcs::add_reply(unsigned int clt_nonce, unsigned int xid,
 		char *b, int sz)
 {
 	ScopedLock rwl(&reply_window_m_);
-        // You fill this in for Lab 1.
+	std::map<unsigned int, std::list<reply_t> >::iterator it = reply_window_.find(clt_nonce);
+	for (std::list<reply_t>::iterator i = it->second.begin(); i != it->second.end(); ++i) {
+		if (i->xid == xid) {
+			i->cb_present = true;
+			i->buf = b;
+			i->sz = sz;
+			return;
+		}
+	}
+	VERIFY (false);
 }
 
 void
