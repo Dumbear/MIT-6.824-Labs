@@ -131,6 +131,7 @@ fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr,
     yfs_client::inum inum = ino;
     if ((r = yfs->setsize(inum, attr->st_size)) != yfs_client::OK) {
       fuse_reply_err(req, ENOENT);
+      return;
     }
 
     getattr(inum, st);
@@ -411,11 +412,23 @@ fuseserver_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name,
   e.attr_timeout = 0.0;
   e.entry_timeout = 0.0;
   e.generation = 0;
-  // Suppress compiler warning of unused e.
-  (void) e;
 
-  // You fill this in for Lab 3
-#if 0
+  yfs_client::status r = yfs_client::OK;
+
+  yfs_client::inum inum;
+  if ((r = yfs->mkdir(parent, std::string(name), inum)) != yfs_client::OK) {
+    fuse_reply_err(req, (r == yfs_client::EXIST ? EEXIST : ENOENT));
+    return;
+  }
+  e.ino = (fuse_ino_t)inum;
+
+  /* Should change the parent's mtime and ctime? */
+  if (getattr(inum, e.attr) != yfs_client::OK) {
+    fuse_reply_err(req, ENOENT);
+    return;
+  }
+
+#if 1
   fuse_reply_entry(req, &e);
 #else
   fuse_reply_err(req, ENOSYS);
@@ -432,10 +445,17 @@ fuseserver_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name,
 void
 fuseserver_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
 {
+  yfs_client::status r = yfs_client::OK;
 
-  // You fill this in for Lab 3
-  // Success:	fuse_reply_err(req, 0);
-  // Not found:	fuse_reply_err(req, ENOENT);
+  if ((r = yfs->unlink(parent, std::string(name))) != yfs_client::OK) {
+    if (r == yfs_client::NOENT) {
+      fuse_reply_err(req, ENOENT);
+      return;
+    }
+  } else {
+    fuse_reply_err(req, 0);
+    return;
+  }
   fuse_reply_err(req, ENOSYS);
 }
 

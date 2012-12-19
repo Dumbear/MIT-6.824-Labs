@@ -159,7 +159,7 @@ yfs_client::status yfs_client::readdir(yfs_client::inum inum, std::list<yfs_clie
 }
 
 yfs_client::status yfs_client::create(yfs_client::inum parent, std::string name, yfs_client::inum &inum) {
-  printf("create '%s' in %016llx\n", name.c_str(), inum);
+  printf("create '%s' in %016llx\n", name.c_str(), parent);
 
   if (!isdir(parent)) {
     return NOENT;
@@ -198,7 +198,7 @@ yfs_client::status yfs_client::create(yfs_client::inum parent, std::string name,
 }
 
 yfs_client::status yfs_client::lookup(yfs_client::inum parent, std::string name, yfs_client::inum &inum) {
-  printf("lookup '%s' in %016llx\n", name.c_str(), inum);
+  printf("lookup '%s' in %016llx\n", name.c_str(), parent);
 
   if (!isdir(parent)) {
     return NOENT;
@@ -297,4 +297,77 @@ yfs_client::status yfs_client::write(yfs_client::inum inum, unsigned long long s
   }
 
   return r;
+}
+
+yfs_client::status yfs_client::mkdir(yfs_client::inum parent, std::string name, yfs_client::inum &inum) {
+  printf("mkdir '%s' in %016llx\n", name.c_str(), parent);
+
+  if (!isdir(parent)) {
+    return NOENT;
+  }
+
+  yfs_client::status r = OK;
+
+  std::string s;
+  if ((r = to_status(ec->get(parent, s))) != yfs_client::OK) {
+    return r;
+  }
+
+  std::list<yfs_client::dirent> entries;
+  split(s, entries);
+  for (std::list<yfs_client::dirent>::iterator i = entries.begin(); i != entries.end(); ++i) {
+    if (i->name == name) {
+      return EXIST;
+    }
+  }
+
+  inum = rand() & 0x7FFFFFFF; /* may collision */
+  if ((r = to_status(ec->put(inum, std::string()))) != yfs_client::OK) {
+    return r;
+  }
+
+  yfs_client::dirent entry;
+  entry.inum = inum;
+  entry.name = name;
+  entries.push_back(entry);
+  join(entries, s);
+  if ((r = to_status(ec->put(parent, s))) != yfs_client::OK) {
+    return r;
+  }
+
+  return r;
+}
+
+yfs_client::status yfs_client::unlink(yfs_client::inum parent, std::string name) {
+  printf("unlink '%s' in %016llx\n", name.c_str(), parent);
+
+  if (!isdir(parent)) {
+    return NOENT;
+  }
+
+  yfs_client::status r = OK;
+
+  std::string s;
+  if ((r = to_status(ec->get(parent, s))) != yfs_client::OK) {
+    return r;
+  }
+
+  std::list<yfs_client::dirent> entries;
+  split(s, entries);
+  for (std::list<yfs_client::dirent>::iterator i = entries.begin(); i != entries.end(); ++i) {
+    if (i->name == name) {
+      if ((r = to_status(ec->remove(i->inum))) != yfs_client::OK) {
+        return r;
+      }
+
+      entries.erase(i);
+      join(entries, s);
+      if ((r = to_status(ec->put(parent, s))) != yfs_client::OK) {
+        return r;
+      }
+
+      return r;
+    }
+  }
+  return NOENT;
 }
