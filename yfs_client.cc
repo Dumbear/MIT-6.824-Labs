@@ -227,21 +227,16 @@ yfs_client::status yfs_client::setsize(yfs_client::inum inum, unsigned long long
 
   yfs_client::status r = OK;
 
-  fileinfo fin;
-  if ((r = getfile(inum, fin)) != yfs_client::OK) {
-    return r;
-  }
-
   std::string s;
   if ((r = to_status(ec->get(inum, s))) != yfs_client::OK) {
     return r;
   }
-  if (fin.size >= size) {
+  if (s.size() >= size) {
     if (!no_trunc) {
       s = s.substr(0, size);
     }
   } else {
-    s += std::string(size - fin.size, '\0');
+    s += std::string(size - s.size(), '\0');
   }
 
   if ((r = to_status(ec->put(inum, s))) != yfs_client::OK) {

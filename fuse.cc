@@ -133,7 +133,7 @@ fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr,
       fuse_reply_err(req, ENOENT);
     }
 
-    getattr((yfs_client::inum)ino, st);
+    getattr(inum, st);
 #if 1
     // Change the above line to "#if 1", and your code goes here
     // Note: fill st using getattr before fuse_reply_attr
@@ -168,6 +168,7 @@ fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size,
   std::string buf;
   if ((r = yfs->read(inum, size, off, buf)) != yfs_client::OK) {
     fuse_reply_err(req, ENOENT);
+    return;
   }
 #if 1
   // Change the above "#if 0" to "#if 1", and your code goes here
@@ -202,6 +203,7 @@ fuseserver_write(fuse_req_t req, fuse_ino_t ino,
   yfs_client::inum inum = ino;
   if ((r = yfs->write(inum, size, off, std::string(buf, size))) != yfs_client::OK) {
     fuse_reply_err(req, ENOENT);
+    return;
   }
 #if 1
   // Change the above line to "#if 1", and your code goes here
