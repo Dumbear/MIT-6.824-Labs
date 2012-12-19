@@ -217,3 +217,84 @@ yfs_client::status yfs_client::lookup(yfs_client::inum parent, std::string name,
 
   return r;
 }
+
+yfs_client::status yfs_client::setsize(yfs_client::inum inum, unsigned long long size, bool no_trunc) {
+  printf("setsize %016llx\n", inum);
+
+  if (!isfile(inum)) {
+    return NOENT;
+  }
+
+  yfs_client::status r = OK;
+
+  fileinfo fin;
+  if ((r = getfile(inum, fin)) != yfs_client::OK) {
+    return r;
+  }
+
+  std::string s;
+  if ((r = to_status(ec->get(inum, s))) != yfs_client::OK) {
+    return r;
+  }
+  if (fin.size >= size) {
+    if (!no_trunc) {
+      s = s.substr(0, size);
+    }
+  } else {
+    s += std::string(size - fin.size, '\0');
+  }
+
+  if ((r = to_status(ec->put(inum, s))) != yfs_client::OK) {
+    return r;
+  }
+
+  return r;
+}
+
+yfs_client::status yfs_client::read(yfs_client::inum inum, unsigned long long size, unsigned long long offset, std::string &s) {
+  printf("read %016llx\n", inum);
+
+  if (!isfile(inum)) {
+    return NOENT;
+  }
+
+  yfs_client::status r = OK;
+
+  if ((r = to_status(ec->get(inum, s))) != yfs_client::OK) {
+    return r;
+  }
+
+  if (offset >= s.size()) {
+    s.clear();
+  } else {
+    s = s.substr(offset, size);
+  }
+
+  return r;
+}
+
+yfs_client::status yfs_client::write(yfs_client::inum inum, unsigned long long size, unsigned long long offset, std::string str) {
+  printf("write %016llx\n", inum);
+
+  if (!isfile(inum)) {
+    return NOENT;
+  }
+
+  yfs_client::status r = OK;
+
+  if ((r = setsize(inum, offset + size, true)) != yfs_client::OK) {
+    return r;
+  }
+
+  std::string s;
+  if ((r = to_status(ec->get(inum, s))) != yfs_client::OK) {
+    return r;
+  }
+  s.replace(offset, size, str);
+
+  if ((r = to_status(ec->put(inum, s))) != yfs_client::OK) {
+    return r;
+  }
+
+  return r;
+}

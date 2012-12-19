@@ -50,6 +50,9 @@ class yfs_client {
   yfs_client::status readdir(yfs_client::inum inum, std::list<yfs_client::dirent> &entries);
   yfs_client::status create(yfs_client::inum parent, std::string name, yfs_client::inum &inum);
   yfs_client::status lookup(yfs_client::inum parent, std::string name, yfs_client::inum &inum);
+  yfs_client::status setsize(yfs_client::inum inum, unsigned long long size, bool no_trunc = false);
+  yfs_client::status read(yfs_client::inum inum, unsigned long long size, unsigned long long offset, std::string &s);
+  yfs_client::status write(yfs_client::inum inum, unsigned long long size, unsigned long long offset, std::string str);
 };
 
 #endif 
