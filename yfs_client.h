@@ -11,6 +11,7 @@
 
 class yfs_client {
   extent_client *ec;
+  lock_client *lc;
  public:
 
   typedef unsigned long long inum;
@@ -33,6 +34,14 @@ class yfs_client {
     yfs_client::inum inum;
   };
 
+ protected:
+  struct scope_lock {
+    lock_client *lc;
+    yfs_client::inum inum;
+    scope_lock(lock_client *lc, yfs_client::inum inum);
+    ~scope_lock();
+  };
+
  private:
   static std::string filename(inum);
   static inum n2i(std::string);
@@ -52,7 +61,7 @@ class yfs_client {
   yfs_client::status readdir(yfs_client::inum inum, std::list<yfs_client::dirent> &entries);
   yfs_client::status create(yfs_client::inum parent, std::string name, yfs_client::inum &inum);
   yfs_client::status lookup(yfs_client::inum parent, std::string name, yfs_client::inum &inum);
-  yfs_client::status setsize(yfs_client::inum inum, unsigned long long size, bool no_trunc = false);
+  yfs_client::status setsize(yfs_client::inum inum, unsigned long long size);
   yfs_client::status read(yfs_client::inum inum, unsigned long long size, unsigned long long offset, std::string &s);
   yfs_client::status write(yfs_client::inum inum, unsigned long long size, unsigned long long offset, std::string str);
   yfs_client::status mkdir(yfs_client::inum parent, std::string name, yfs_client::inum &inum);

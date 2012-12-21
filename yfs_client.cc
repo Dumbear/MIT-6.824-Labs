@@ -10,11 +10,20 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+yfs_client::scope_lock::scope_lock(lock_client *lc, yfs_client::inum inum) {
+  this->lc = lc;
+  this->inum = inum;
+  lc->acquire(inum);
+}
+
+yfs_client::scope_lock::~scope_lock() {
+  lc->release(inum);
+}
 
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
 {
   ec = new extent_client(extent_dst);
-
+  lc = new lock_client(lock_dst);
 }
 
 yfs_client::inum
@@ -52,8 +61,7 @@ int
 yfs_client::getfile(inum inum, fileinfo &fin)
 {
   int r = OK;
-  // You modify this function for Lab 3
-  // - hold and release the file lock
+  scope_lock lock(lc, inum);
 
   printf("getfile %016llx\n", inum);
   extent_protocol::attr a;
@@ -77,8 +85,7 @@ int
 yfs_client::getdir(inum inum, dirinfo &din)
 {
   int r = OK;
-  // You modify this function for Lab 3
-  // - hold and release the directory lock
+  scope_lock lock(lc, inum);
 
   printf("getdir %016llx\n", inum);
   extent_protocol::attr a;
@@ -147,6 +154,7 @@ yfs_client::status yfs_client::readdir(yfs_client::inum inum, std::list<yfs_clie
   }
 
   yfs_client::status r = OK;
+  scope_lock lock(lc, inum);
 
   std::string s;
   if ((r = to_status(ec->get(inum, s))) != yfs_client::OK) {
@@ -166,6 +174,7 @@ yfs_client::status yfs_client::create(yfs_client::inum parent, std::string name,
   }
 
   yfs_client::status r = OK;
+  scope_lock lock(lc, parent);
 
   std::string s;
   if ((r = to_status(ec->get(parent, s))) != yfs_client::OK) {
@@ -205,6 +214,7 @@ yfs_client::status yfs_client::lookup(yfs_client::inum parent, std::string name,
   }
 
   yfs_client::status r = OK;
+  scope_lock lock(lc, parent);
 
   std::string s;
   if ((r = to_status(ec->get(parent, s))) != yfs_client::OK) {
@@ -223,7 +233,7 @@ yfs_client::status yfs_client::lookup(yfs_client::inum parent, std::string name,
   return r;
 }
 
-yfs_client::status yfs_client::setsize(yfs_client::inum inum, unsigned long long size, bool no_trunc) {
+yfs_client::status yfs_client::setsize(yfs_client::inum inum, unsigned long long size) {
   printf("setsize %016llx\n", inum);
 
   if (!isfile(inum)) {
@@ -231,15 +241,14 @@ yfs_client::status yfs_client::setsize(yfs_client::inum inum, unsigned long long
   }
 
   yfs_client::status r = OK;
+  scope_lock lock(lc, inum);
 
   std::string s;
   if ((r = to_status(ec->get(inum, s))) != yfs_client::OK) {
     return r;
   }
   if (s.size() >= size) {
-    if (!no_trunc) {
-      s = s.substr(0, size);
-    }
+    s = s.substr(0, size);
   } else {
     s += std::string(size - s.size(), '\0');
   }
@@ -259,6 +268,7 @@ yfs_client::status yfs_client::read(yfs_client::inum inum, unsigned long long si
   }
 
   yfs_client::status r = OK;
+  scope_lock lock(lc, inum);
 
   if ((r = to_status(ec->get(inum, s))) != yfs_client::OK) {
     return r;
@@ -281,14 +291,14 @@ yfs_client::status yfs_client::write(yfs_client::inum inum, unsigned long long s
   }
 
   yfs_client::status r = OK;
-
-  if ((r = setsize(inum, offset + size, true)) != yfs_client::OK) {
-    return r;
-  }
+  scope_lock lock(lc, inum);
 
   std::string s;
   if ((r = to_status(ec->get(inum, s))) != yfs_client::OK) {
     return r;
+  }
+  if (offset + size > s.size()) {
+    s += std::string(offset + size - s.size(), '\0');
   }
   s.replace(offset, size, str);
 
@@ -307,6 +317,7 @@ yfs_client::status yfs_client::mkdir(yfs_client::inum parent, std::string name, 
   }
 
   yfs_client::status r = OK;
+  scope_lock lock(lc, parent);
 
   std::string s;
   if ((r = to_status(ec->get(parent, s))) != yfs_client::OK) {
@@ -346,6 +357,7 @@ yfs_client::status yfs_client::unlink(yfs_client::inum parent, std::string name)
   }
 
   yfs_client::status r = OK;
+  scope_lock lock(lc, parent);
 
   std::string s;
   if ((r = to_status(ec->get(parent, s))) != yfs_client::OK) {
